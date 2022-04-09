@@ -541,6 +541,12 @@ function run_passes(ci::CodeInfo, sv::OptimizationState, caller::InferenceResult
     # @timeit "verify 2" verify_ir(ir)
     @timeit "compact 2" ir = compact!(ir)
     @timeit "SROA"      ir = sroa_pass!(ir)
+    ir = compact!(ir)
+    #@Base.show ("after_sroa", ir)
+    @timeit "loopinfo" loopinfo = construct_loopinfo(ir)
+    if loopinfo !== nothing
+        @timeit "licm" ir = licm_pass!(ir, loopinfo)
+    end
     @timeit "ADCE"      ir = adce_pass!(ir)
     @timeit "type lift" ir = type_lift_pass!(ir)
     @timeit "compact 3" ir = compact!(ir)
