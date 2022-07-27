@@ -1417,7 +1417,7 @@ endef
 ifeq ($(USE_SYSTEM_WINE), 1)
 WINE := wine
 else
-WINE := $(build_depsbindir)/wine
+WINE := $(build_bindir)/wine
 endif
 
 
