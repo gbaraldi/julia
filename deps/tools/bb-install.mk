@@ -35,6 +35,8 @@ $(2)_JLL_VER_NOPLUS := $$(firstword $$(subst +,$(SPACE),$$($(2)_JLL_VER)))
 $(2)_JLL_BASENAME := $$($(2)_JLL_DOWNLOAD_NAME).v$$($(2)_JLL_VER).$$($(2)_BB_TRIPLET)$$($(2)_JLL_TAGS).tar.gz
 $(2)_BB_URL := https://github.com/JuliaBinaryWrappers/$$($(2)_JLL_DOWNLOAD_NAME)_jll.jl/releases/download/$$($(2)_JLL_DOWNLOAD_NAME)-v$$($(2)_JLL_VER)/$$($(2)_JLL_DOWNLOAD_NAME).v$$($(2)_JLL_VER_NOPLUS).$$($(2)_BB_TRIPLET)$$($(2)_JLL_TAGS).tar.gz
 
+$(2)_TAR_OPTIONS ?=
+
 $$(SRCCACHE)/$$($(2)_JLL_BASENAME): | $$(SRCCACHE)
 	$$(JLDOWNLOAD) $$@ $$($(2)_BB_URL)
 
@@ -57,7 +59,7 @@ ifneq (bsdtar,$(findstring bsdtar,$(TAR_TEST)))
 	@# the mkdir calls first in a pre-pass
 	$(TAR) -tzf $$< | xargs -n 1 dirname | sort -u | (cd $$(build_prefix) && xargs -t mkdir -p)
 endif
-	$(UNTAR) $$< -C $$(build_prefix)
+	$(UNTAR) $$< -C $$(build_prefix) $$($(2)_TAR_OPTIONS)
 	echo '$$(UNINSTALL_$(strip $1))' > $$@
 
 # Special "checksum-foo" target to speed up `contrib/refresh_checksums.sh`
