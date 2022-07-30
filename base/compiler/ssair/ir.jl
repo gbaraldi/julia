@@ -259,6 +259,8 @@ function setindex!(node::Instruction, newval::Instruction)
     return node
 end
 
+
+
 struct NewNodeInfo
     # Insertion position (interpretation depends on which array this is in)
     pos::Int
@@ -517,6 +519,12 @@ function insert_node!(ir::IRCode, pos::Int, inst::NewInstruction, attach_after::
         end
     end
     node[:inst], node[:type], node[:flag] = inst.stmt, inst.type, flag
+    return SSAValue(length(ir.stmts) + node.idx)
+end
+
+function copy_inst!(ir::IRCode, to::Int, inst::Instruction, attach_after::Bool=false)
+    node = add!(ir.new_nodes, to, attach_after)
+    node[] = inst
     return SSAValue(length(ir.stmts) + node.idx)
 end
 

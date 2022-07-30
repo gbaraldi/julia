@@ -593,6 +593,12 @@ function run_passes(
     # @timeit "verify 2" verify_ir(ir)
     @pass "compact 2" ir = compact!(ir)
     @pass "SROA"      ir = sroa_pass!(ir, sv.inlining)
+    # ir = compact!(ir)
+    # #@Base.show ("after_sroa", ir)
+    # @timeit "loopinfo" loopinfo = construct_loopinfo(ir)
+    # if loopinfo !== nothing
+    #     @timeit "licm" ir = licm_pass!(ir, loopinfo)
+    # end
     @pass "ADCE"      ir = adce_pass!(ir)
     @pass "type lift" ir = type_lift_pass!(ir)
     @pass "compact 3" ir = compact!(ir)
