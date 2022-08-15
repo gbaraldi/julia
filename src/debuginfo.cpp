@@ -682,7 +682,7 @@ openDebugInfo(StringRef debuginfopath, const debug_link_info &info)
             std::move(SplitFile.get()));
 }
 extern "C" JL_DLLEXPORT
-void jl_register_fptrs_impl(uint64_t sysimage_base, const jl_sysimg_fptrs_t *fptrs,
+void jl_register_fptrs(uint64_t sysimage_base, const jl_sysimg_fptrs_t *fptrs,
     jl_method_instance_t **linfos, size_t n)
 {
     getJITDebugRegistry().set_sysimg_info({(uintptr_t) sysimage_base, *fptrs, linfos, n});
@@ -1194,7 +1194,7 @@ int jl_DI_for_fptr(uint64_t fptr, uint64_t *symsize, int64_t *slide,
 }
 
 // Set *name and *filename to either NULL or malloc'd string
-extern "C" JL_DLLEXPORT int jl_getFunctionInfo_impl(jl_frame_t **frames_out, size_t pointer, int skipC, int noInline) JL_NOTSAFEPOINT
+extern "C" JL_DLLEXPORT int jl_getFunctionInfo(jl_frame_t **frames_out, size_t pointer, int skipC, int noInline) JL_NOTSAFEPOINT
 {
     // This function is not allowed to reference any TLS variables if noInline
     // since it can be called from an unmanaged thread on OSX.
@@ -1585,7 +1585,7 @@ void deregister_eh_frames(uint8_t *Addr, size_t Size)
 #endif
 
 extern "C" JL_DLLEXPORT
-uint64_t jl_getUnwindInfo_impl(uint64_t dwAddr)
+uint64_t jl_getUnwindInfo(uint64_t dwAddr)
 {
     // Might be called from unmanaged thread
     jl_lock_profile();

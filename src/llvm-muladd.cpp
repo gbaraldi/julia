@@ -118,7 +118,7 @@ Pass *createCombineMulAddPass()
     return new CombineMulAddLegacy();
 }
 
-extern "C" JL_DLLEXPORT void LLVMExtraAddCombineMulAddPass_impl(LLVMPassManagerRef PM)
+extern "C" JL_DLLEXPORT void LLVMExtraAddCombineMulAddPass(LLVMPassManagerRef PM)
 {
     unwrap(PM)->add(createCombineMulAddPass());
 }

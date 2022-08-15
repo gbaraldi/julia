@@ -1198,7 +1198,7 @@ Pass *createMultiVersioningPass(bool allow_bad_fvars)
     return new MultiVersioningLegacy(allow_bad_fvars);
 }
 
-extern "C" JL_DLLEXPORT void LLVMExtraAddMultiVersioningPass_impl(LLVMPassManagerRef PM)
+extern "C" JL_DLLEXPORT void LLVMExtraAddMultiVersioningPass(LLVMPassManagerRef PM)
 {
     unwrap(PM)->add(createMultiVersioningPass(false));
 }

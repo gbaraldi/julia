@@ -188,7 +188,7 @@ STATISTIC(GeneratedInvokeWrappers, "Number of invoke wrappers generated");
 STATISTIC(EmittedFunctions, "Number of functions emitted");
 
 extern "C" JL_DLLEXPORT
-void jl_dump_emitted_mi_name_impl(void *s)
+void jl_dump_emitted_mi_name(void *s)
 {
     **jl_ExecutionEngine->get_dump_emitted_mi_name_stream() = (JL_STREAM*)s;
 }
@@ -8654,14 +8654,14 @@ extern "C" void jl_init_llvm(void)
     cl::PrintOptionValues();
 }
 
-extern "C" JL_DLLEXPORT void jl_init_codegen_impl(void)
+extern "C" JL_DLLEXPORT void jl_init_codegen(void)
 {
     jl_init_llvm();
     // Now that the execution engine exists, initialize all modules
     init_jit_functions();
 }
 
-extern "C" JL_DLLEXPORT void jl_teardown_codegen_impl()
+extern "C" JL_DLLEXPORT void jl_teardown_codegen()
 {
     // output LLVM timings and statistics
     reportAndResetTimings();
@@ -8736,7 +8736,7 @@ extern void jl_write_bitcode_module(void *M, char *fname) {
 
 #include <llvm-c/Core.h>
 
-extern "C" JL_DLLEXPORT jl_value_t *jl_get_libllvm_impl(void) JL_NOTSAFEPOINT
+extern "C" JL_DLLEXPORT jl_value_t *jl_get_libllvm(void) JL_NOTSAFEPOINT
 {
 #if defined(_OS_WINDOWS_)
     HMODULE mod;

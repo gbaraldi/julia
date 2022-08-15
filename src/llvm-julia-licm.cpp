@@ -342,7 +342,7 @@ Pass *createJuliaLICMPass()
     return new JuliaLICMPassLegacy();
 }
 
-extern "C" JL_DLLEXPORT void LLVMExtraJuliaLICMPass_impl(LLVMPassManagerRef PM)
+extern "C" JL_DLLEXPORT void LLVMExtraJuliaLICMPass(LLVMPassManagerRef PM)
 {
     unwrap(PM)->add(createJuliaLICMPass());
 }

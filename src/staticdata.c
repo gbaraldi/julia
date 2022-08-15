@@ -425,6 +425,21 @@ static void jl_load_sysimg_so(void)
     jl_restore_system_image_data(sysimg_data, *plen);
 }
 
+const char jl_system_image_data[] __attribute__((weak));
+void *jl_sysimg_fvars_base[] __attribute__((weak));
+void *jl_sysimg_gvars_base[] __attribute__((weak));
+void *jl_sysimg_gvars_offsets[] __attribute__((weak));
+void *jl_sysimg_fvars_offsets[] __attribute__((weak));
+size_t jl_system_image_size __attribute__((weak)) = 0;
+
+#include <stdio.h>
+void jl_load_sysimg_static() {
+    sysimg_fptrs.base = jl_sysimg_fvars_base;
+    sysimg_fptrs.offsets = jl_sysimg_fvars_offsets;
+    sysimg_gvars_base = jl_sysimg_gvars_base;
+    sysimg_gvars_offsets = jl_sysimg_gvars_offsets;
+    jl_restore_system_image_data(jl_system_image_data, jl_system_image_size);
+}
 
 // --- serializer ---
 
@@ -1994,7 +2009,7 @@ JL_DLLEXPORT void jl_save_system_image(const char *fname)
 // Takes in a path of the form "usr/lib/julia/sys.so" (jl_restore_system_image should be passed the same string)
 JL_DLLEXPORT void jl_preload_sysimg_so(const char *fname)
 {
-    if (jl_sysimg_handle)
+    if (jl_sysimg_handle || jl_system_image_size)
         return; // embedded target already called jl_set_sysimg_so
 
     char *dot = (char*) strrchr(fname, '.');
@@ -2072,7 +2087,8 @@ static void jl_restore_system_image_from_stream(ios_t *f) JL_GC_DISABLED
     size_t i;
     for (i = 0; tags[i] != NULL; i++) {
         jl_value_t **tag = tags[i];
-        *tag = jl_read_value(&s);
+        jl_value_t *v = jl_read_value(&s);
+        *tag = v;
     }
     // set typeof extra-special values now that we have the type set by tags above
     jl_astaggedvalue(jl_current_task)->header = (uintptr_t)jl_task_type | jl_astaggedvalue(jl_current_task)->header;
@@ -2113,7 +2129,7 @@ static void jl_restore_system_image_from_stream(ios_t *f) JL_GC_DISABLED
     jl_finalize_deserializer(&s);
     s.s = NULL;
 
-    if (0) {
+    if (1) {
         printf("sysimg size breakdown:\n"
                "     sys data: %8u\n"
                "  isbits data: %8u\n"
@@ -2159,6 +2175,10 @@ JL_DLLEXPORT void jl_restore_system_image(const char *fname)
     if (jl_sysimg_handle) {
         // load the pre-compiled sysimage from jl_sysimg_handle
         jl_load_sysimg_so();
+    }
+    else if (jl_system_image_size) {
+        // load the pre-compiled sysimage statically compiled into this executable
+        jl_load_sysimg_static();
     }
     else {
         ios_t f;

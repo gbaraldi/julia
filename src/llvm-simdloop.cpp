@@ -311,7 +311,7 @@ JL_DLLEXPORT Pass *createLowerSimdLoopPass()
     return new LowerSIMDLoopLegacy();
 }
 
-extern "C" JL_DLLEXPORT void LLVMExtraAddLowerSimdLoopPass_impl(LLVMPassManagerRef PM)
+extern "C" JL_DLLEXPORT void LLVMExtraAddLowerSimdLoopPass(LLVMPassManagerRef PM)
 {
     unwrap(PM)->add(createLowerSimdLoopPass());
 }

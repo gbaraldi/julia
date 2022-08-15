@@ -492,7 +492,7 @@ void jl_strip_llvm_addrspaces(Module *m)
 // print an llvm IR acquired from jl_get_llvmf
 // warning: this takes ownership of, and destroys, dump->TSM
 extern "C" JL_DLLEXPORT
-jl_value_t *jl_dump_function_ir_impl(jl_llvmf_dump_t *dump, char strip_ir_metadata, char dump_module, const char *debuginfo)
+jl_value_t *jl_dump_function_ir(jl_llvmf_dump_t *dump, char strip_ir_metadata, char dump_module, const char *debuginfo)
 {
     std::string code;
     raw_string_ostream stream(code);
@@ -581,7 +581,7 @@ static uint64_t compute_obj_symsize(object::SectionRef Section, uint64_t offset)
 
 // print a native disassembly for the function starting at fptr
 extern "C" JL_DLLEXPORT
-jl_value_t *jl_dump_fptr_asm_impl(uint64_t fptr, char raw_mc, const char* asm_variant, const char *debuginfo, char binary)
+jl_value_t *jl_dump_fptr_asm(uint64_t fptr, char raw_mc, const char* asm_variant, const char *debuginfo, char binary)
 {
     assert(fptr != 0);
     std::string code;
@@ -1203,7 +1203,7 @@ public:
 
 // get a native assembly for llvm::Function
 extern "C" JL_DLLEXPORT
-jl_value_t *jl_dump_function_asm_impl(jl_llvmf_dump_t* dump, char raw_mc, const char* asm_variant, const char *debuginfo, char binary)
+jl_value_t *jl_dump_function_asm(jl_llvmf_dump_t* dump, char raw_mc, const char* asm_variant, const char *debuginfo, char binary)
 {
     // precise printing via IR assembler
     SmallVector<char, 4096> ObjBufferSV;
@@ -1277,7 +1277,7 @@ jl_value_t *jl_dump_function_asm_impl(jl_llvmf_dump_t* dump, char raw_mc, const 
 }
 
 extern "C" JL_DLLEXPORT
-LLVMDisasmContextRef jl_LLVMCreateDisasm_impl(
+LLVMDisasmContextRef jl_LLVMCreateDisasm(
         const char *TripleName, void *DisInfo, int TagType,
         LLVMOpInfoCallback GetOpInfo, LLVMSymbolLookupCallback SymbolLookUp)
 {
@@ -1285,7 +1285,7 @@ LLVMDisasmContextRef jl_LLVMCreateDisasm_impl(
 }
 
 extern "C" JL_DLLEXPORT
-JL_DLLEXPORT size_t jl_LLVMDisasmInstruction_impl(
+JL_DLLEXPORT size_t jl_LLVMDisasmInstruction(
         LLVMDisasmContextRef DC, uint8_t *Bytes, uint64_t BytesSize,
         uint64_t PC, char *OutString, size_t OutStringSize)
 {

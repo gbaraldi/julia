@@ -57,18 +57,16 @@ display([1])
 display([1 2; 3 4])
 @time 1+1
 ; pwd
-$CTRL_C
+; pwd
 ? reinterpret
-using Ra\t$CTRL_C
-\\alpha\t$CTRL_C
-\e[200~paste here ;)\e[201~"$CTRL_C
-$UP_ARROW$DOWN_ARROW$CTRL_C
-123\b\b\b$CTRL_C
-\b\b$CTRL_C
+using Ra\t
+\\alpha\t
+\e[200~paste here ;)\e[201~"
+123\b\b\b
+\b\b
 f(x) = x03
 f(1,2)
 [][1]
-cd("complet_path\t\t$CTRL_C
 """
 
 precompile_script = """
@@ -152,7 +150,7 @@ if Artifacts !== nothing
     artifacts = Artifacts.load_artifacts_toml(artifacts_toml)
     platforms = [Artifacts.unpack_platform(e, "HelloWorldC", artifacts_toml) for e in artifacts["HelloWorldC"]]
     best_platform = select_platform(Dict(p => triplet(p) for p in platforms))
-    dlopen("libjulia$(ccall(:jl_is_debugbuild, Cint, ()) != 0 ? "-debug" : "")", RTLD_LAZY | RTLD_DEEPBIND)
+    # dlopen("libjulia$(ccall(:jl_is_debugbuild, Cint, ()) != 0 ? "-debug" : "")", RTLD_LAZY | RTLD_DEEPBIND)
     """
 end
 
@@ -163,7 +161,7 @@ Pkg = get(Base.loaded_modules,
 
 if Pkg !== nothing
     # TODO: Split Pkg precompile script into REPL and script part
-    repl_script *= Pkg.precompile_script
+    # repl_script *= Pkg.precompile_script
 end
 
 FileWatching = get(Base.loaded_modules,
@@ -225,7 +223,7 @@ Profile = get(Base.loaded_modules,
           Base.PkgId(Base.UUID("9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"), "Profile"),
           nothing)
 if Profile !== nothing
-    repl_script *= Profile.precompile_script
+    # repl_script *= Profile.precompile_script
     hardcoded_precompile_statements *= """
     precompile(Tuple{typeof(Profile.tree!), Profile.StackFrameTree{UInt64}, Vector{UInt64}, Dict{UInt64, Vector{Base.StackTraces.StackFrame}}, Bool, Symbol, Int, UInt})
     precompile(Tuple{typeof(Profile.tree!), Profile.StackFrameTree{UInt64}, Vector{UInt64}, Dict{UInt64, Vector{Base.StackTraces.StackFrame}}, Bool, Symbol, Int, UnitRange{UInt}})
@@ -242,7 +240,7 @@ const HELP_PROMPT = "help?> "
 
 function generate_precompile_statements()
     start_time = time_ns()
-    debug_output = devnull # or stdout
+    debug_output = stdout # or stdout
     sysimg = Base.unsafe_string(Base.JLOptions().image_file)
 
     # Extract the precompile statements from the precompile file
@@ -298,7 +296,7 @@ function generate_precompile_statements()
                     "JULIA_PKG_PRECOMPILE_AUTO" => "0",
                     "TERM" => "") do
             run(```$(julia_exepath()) -O0 --trace-compile=$precompile_file --sysimage $sysimg
-                   --cpu-target=native --startup-file=no -i $cmdargs```,
+                   --cpu-target=native --startup-file=no --compile=all -i $cmdargs```,
                    pts, pts, pts; wait=false)
         end
         Base.close_stdio(pts)

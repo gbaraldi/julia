@@ -321,7 +321,7 @@ Pass *createLowerPTLSPass(bool imaging_mode)
     return new LowerPTLSLegacy(imaging_mode);
 }
 
-extern "C" JL_DLLEXPORT void LLVMExtraAddLowerPTLSPass_impl(LLVMPassManagerRef PM, LLVMBool imaging_mode)
+extern "C" JL_DLLEXPORT void LLVMExtraAddLowerPTLSPass(LLVMPassManagerRef PM, LLVMBool imaging_mode)
 {
     unwrap(PM)->add(createLowerPTLSPass(imaging_mode));
 }
