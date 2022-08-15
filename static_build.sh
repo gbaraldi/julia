@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
-make julia-base
-make julia-deps
+make julia-base -j6
+make julia-deps -j6
 gcc -c cli-static/static_exe.c -o cli-static/static_exe.o
-make julia-src-release
-make julia-stdlib
+make julia-src-release -j6
+make julia-stdlib -j6 
 mkdir usr/staticlibs
 MAINDIR=$(pwd)
 
