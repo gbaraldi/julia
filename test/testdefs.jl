@@ -1,6 +1,7 @@
 # This file is a part of Julia. License is MIT: https://julialang.org/license
 
 using Test, Random
+using LinearAlgebra.BLAS: BLAS.set_num_threads
 
 function runtests(name, path, isolate=true; seed=nothing)
     old_print_setting = Test.TESTSET_PRINT_ENABLE[]
