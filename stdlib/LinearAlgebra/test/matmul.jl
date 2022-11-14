@@ -7,7 +7,7 @@ using Test, LinearAlgebra, Random
 using LinearAlgebra: mul!
 
 ## Test Julia fallbacks to BLAS routines
-
+Sys.iswindows() && LinearAlgebra.BLAS.set_num_threads(4)
 @testset "matrices with zero dimensions" begin
     for (dimsA, dimsB, dimsC) in (
         ((0, 5), (5, 3), (0, 3)),

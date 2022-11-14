@@ -65,6 +65,7 @@ function runtests(name, path, isolate=true; seed=nothing)
             end
         end
         rss = Sys.maxrss()
+        Sys.iswindows() && LinearAlgebra.BLAS.set_num_threads(1)
         #res_and_time_data[1] is the testset
         ts = res_and_time_data[1]
         passes, fails, errors, broken, c_passes, c_fails, c_errors, c_broken = Test.get_test_counts(ts)
