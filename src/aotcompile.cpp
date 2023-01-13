@@ -859,7 +859,7 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level,
     PM->add(createDeadCodeEliminationPass());
     PM->add(createSROAPass());
 
-    //PM->add(createMemCpyOptPass());
+    // PM->add(createMemCpyOptPass());
 
     PM->add(createAlwaysInlinerLegacyPass()); // Respect always_inline
 
@@ -913,7 +913,9 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level,
     PM->add(createLoopIdiomPass());
     PM->add(createIndVarSimplifyPass());
     PM->add(createLoopDeletionPass());
+    // createLoopUnrollPass(2, false, false, -1, -1, 1, 0, 0, 1);
     PM->add(createSimpleLoopUnrollPass());
+
 
     // Run our own SROA on heap objects before LLVM's
     PM->add(createAllocOptPass());
@@ -963,7 +965,8 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level,
     ));
     PM->add(createSLPVectorizerPass());
     // might need this after LLVM 11:
-    //PM->add(createVectorCombinePass());
+    PM->add(createVectorCombinePass());
+    PM->add(createLoopUnrollPass(2, false, false, -1, -1, 0, 1, 0, 1));
 
     PM->add(createAggressiveDCEPass());
 
