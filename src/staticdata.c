@@ -493,6 +493,30 @@ static void jl_load_sysimg_so(void)
 }
 
 
+
+extern const char* jl_system_image_data __attribute__((weak)) ;
+extern const void *jl_sysimg_gvars_base __attribute__((weak));
+extern const void *jl_sysimg_gvars_offsets __attribute__((weak));
+extern const void *jl_sysimg_gvars_offsets __attribute__((weak));
+const size_t jl_system_image_size __attribute__((weak)) = 0;
+extern const void *jl_pgcstack_func_slot __attribute__((weak));
+extern const void *jl_pgcstack_key_slot __attribute__((weak));
+
+
+void jl_load_sysimg_static() {
+    if (jl_options.cpu_target == NULL)
+        jl_options.cpu_target = "native";
+    sysimage.fptrs = jl_init_processor_static();
+    sysimage.gvars_base = (void*)jl_sysimg_gvars_base;
+    sysimage.gvars_offsets = (void*)jl_sysimg_gvars_offsets;
+    sysimage.gvars_offsets += 1;
+    void *pgcstack_func_slot = (void*)jl_pgcstack_func_slot;
+    void *pgcstack_key_slot = (void*)jl_pgcstack_key_slot;
+    jl_pgcstack_getkey((jl_get_pgcstack_func**)pgcstack_func_slot, (jl_pgcstack_key_t*)pgcstack_key_slot);
+    size_t *tls_offset_idx = (void*)jl_tls_offset;
+    *tls_offset_idx = (uintptr_t)(jl_tls_offset == -1 ? 0 : jl_tls_offset);
+    jl_restore_system_image_data(jl_system_image_data, jl_system_image_size);
+}
 // --- serializer ---
 
 #define NBOX_C 1024
@@ -2636,7 +2660,7 @@ JL_DLLEXPORT size_t ios_write_direct(ios_t *dest, ios_t *src);
 // Takes in a path of the form "usr/lib/julia/sys.so" (jl_restore_system_image should be passed the same string)
 JL_DLLEXPORT void jl_preload_sysimg_so(const char *fname)
 {
-    if (jl_sysimg_handle)
+    if (jl_sysimg_handle || jl_system_image_size)
         return; // embedded target already called jl_set_sysimg_so
 
     char *dot = (char*) strrchr(fname, '.');

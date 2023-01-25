@@ -3,6 +3,7 @@
 // Processor feature detection
 
 #include "llvm-version.h"
+#include <cstdint>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/MathExtras.h>
 #include <llvm/Support/raw_ostream.h>
@@ -74,6 +75,14 @@
 //     Optimize only for size. Clang's `-Oz`.
 
 JL_DLLEXPORT bool jl_processor_print_help = false;
+
+extern const char *jl_sysimg_fvars_base __attribute__((weak));
+extern const char *jl_sysimg_gvars_base __attribute__((weak));
+extern const int32_t *jl_sysimg_fvars_offsets __attribute__((weak));
+extern const void *jl_dispatch_target_ids __attribute__((weak));
+extern const int32_t *jl_dispatch_reloc_slots __attribute__((weak));
+extern const uint32_t *jl_dispatch_fvars_idxs __attribute__((weak));
+extern const int32_t *jl_dispatch_fvars_offsets __attribute__((weak));
 
 namespace {
 
@@ -616,6 +625,110 @@ static inline std::vector<TargetData<n>> &get_cmdline_targets(F &&feature_cb)
     static std::vector<TargetData<n>> targets =
         parse_cmdline<n>(jl_options.cpu_target, std::forward<F>(feature_cb));
     return targets;
+}
+
+
+
+// Load sysimg, use the `callback` for dispatch and perform all relocations
+// for the selected target.
+template<typename F>
+static inline jl_image_fptrs_t parse_sysimg_static(F &&callback)
+{
+    jl_image_fptrs_t res = {nullptr, 0, nullptr, 0, nullptr, nullptr};
+
+    // .data base
+    char *data_base = (char*)jl_sysimg_gvars_base;
+    // .text base
+    char *text_base = (char*)jl_sysimg_fvars_base;
+    res.base = text_base;
+
+    int32_t *offsets = (int32_t*)jl_sysimg_fvars_offsets;
+    uint32_t nfunc = offsets[0];
+    res.offsets = offsets + 1;
+
+    void *ids = (void*)jl_dispatch_target_ids;
+    uint32_t target_idx = callback(ids);
+
+    int32_t *reloc_slots = (int32_t*)jl_dispatch_reloc_slots;
+    const uint32_t nreloc = reloc_slots[0];
+    reloc_slots += 1;
+    uint32_t *clone_idxs = (uint32_t*)jl_dispatch_fvars_idxs;
+    int32_t *clone_offsets = (int32_t*)jl_dispatch_fvars_offsets;
+    uint32_t tag_len = clone_idxs[0];
+    clone_idxs += 1;
+
+    assert(tag_len & jl_sysimg_tag_mask);
+    std::vector<const int32_t*> base_offsets = {res.offsets};
+    // Find target
+    for (uint32_t i = 0;i < target_idx;i++) {
+        uint32_t len = jl_sysimg_val_mask & tag_len;
+        if (jl_sysimg_tag_mask & tag_len) {
+            if (i != 0)
+                clone_offsets += nfunc;
+            clone_idxs += len + 1;
+        }
+        else {
+            clone_offsets += len;
+            clone_idxs += len + 2;
+        }
+        tag_len = clone_idxs[-1];
+        base_offsets.push_back(tag_len & jl_sysimg_tag_mask ? clone_offsets : nullptr);
+    }
+
+    bool clone_all = (tag_len & jl_sysimg_tag_mask) != 0;
+    // Fill in return value
+    if (clone_all) {
+        // clone_all
+        if (target_idx != 0) {
+            res.offsets = clone_offsets;
+        }
+    }
+    else {
+        uint32_t base_idx = clone_idxs[0];
+        assert(base_idx < target_idx);
+        if (target_idx != 0) {
+            res.offsets = base_offsets[base_idx];
+            assert(res.offsets);
+        }
+        clone_idxs++;
+        res.nclones = tag_len;
+        res.clone_offsets = clone_offsets;
+        res.clone_idxs = clone_idxs;
+    }
+    // Do relocation
+    uint32_t reloc_i = 0;
+    uint32_t len = jl_sysimg_val_mask & tag_len;
+    for (uint32_t i = 0; i < len; i++) {
+        uint32_t idx = clone_idxs[i];
+        int32_t offset;
+        if (clone_all) {
+            offset = res.offsets[idx];
+        }
+        else if (idx & jl_sysimg_tag_mask) {
+            idx = idx & jl_sysimg_val_mask;
+            offset = clone_offsets[i];
+        }
+        else {
+            continue;
+        }
+        bool found = false;
+        for (; reloc_i < nreloc; reloc_i++) {
+            auto reloc_idx = ((const uint32_t*)reloc_slots)[reloc_i * 2];
+            if (reloc_idx == idx) {
+                found = true;
+                auto slot = (const void**)(data_base + reloc_slots[reloc_i * 2 + 1]);
+                assert(slot);
+                *slot = offset + res.base;
+            }
+            else if (reloc_idx > idx) {
+                break;
+            }
+        }
+        assert(found && "Cannot find GOT entry for cloned function.");
+        (void)found;
+    }
+
+    return res;
 }
 
 // Load sysimg, use the `callback` for dispatch and perform all relocations

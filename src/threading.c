@@ -481,8 +481,7 @@ static void jl_delete_thread(void *value) JL_NOTSAFEPOINT_ENTER
 
 JL_DLLEXPORT jl_mutex_t jl_codegen_lock;
 jl_mutex_t typecache_lock;
-
-JL_DLLEXPORT ssize_t jl_tls_offset = -1;
+JL_DLLEXPORT ssize_t jl_tls_offset __attribute__((weak)) = -1;
 
 #ifdef JL_ELF_TLS_VARIANT
 JL_DLLEXPORT const int jl_tls_elf_support = 1;

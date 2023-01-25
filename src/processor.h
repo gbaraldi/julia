@@ -166,6 +166,7 @@ typedef struct _jl_image_fptrs_t {
  * Return the data about the function pointers selected.
  */
 jl_image_fptrs_t jl_init_processor_sysimg(void *hdl);
+jl_image_fptrs_t jl_init_processor_static();
 jl_image_fptrs_t jl_init_processor_pkgimg(void *hdl);
 
 // Return the name of the host CPU as a julia string.
