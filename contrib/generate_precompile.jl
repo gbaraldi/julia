@@ -163,7 +163,7 @@ if Artifacts !== nothing
     artifacts = Artifacts.load_artifacts_toml(artifacts_toml)
     platforms = [Artifacts.unpack_platform(e, "HelloWorldC", artifacts_toml) for e in artifacts["HelloWorldC"]]
     best_platform = select_platform(Dict(p => triplet(p) for p in platforms))
-    dlopen("libjulia$(Base.isdebugbuild() ? "-debug" : "")", RTLD_LAZY | RTLD_DEEPBIND)
+    # dlopen("libjulia$(Base.isdebugbuild() ? "-debug" : "")", RTLD_LAZY | RTLD_DEEPBIND)
     """
 end
 
@@ -339,7 +339,8 @@ generate_precompile_statements() = try # Make sure `ansi_enablecursor` is printe
             Base.compilecache(Base.PkgId($(repr(pkgname))), $(repr(path)))
             $precompile_script
             """
-        run(`$(julia_exepath()) -O0 --sysimage $sysimg --trace-compile=$tmp_proc --startup-file=no -Cnative -e $s`)
+        @show "here"
+        run(`$(julia_exepath()) -O0 --sysimage $sysimg --trace-compile=$tmp_proc --startup-file=no --pkgimages=no -Cnative -e $s`)
         n_step1 = 0
         for f in (tmp_prec, tmp_proc)
             isfile(f) || continue
@@ -367,13 +368,14 @@ generate_precompile_statements() = try # Make sure `ansi_enablecursor` is printe
         else
             cmdargs = `-e nothing`
         end
+        @show "here2"
         p = withenv("JULIA_HISTORY" => blackhole,
                     "JULIA_PROJECT" => nothing, # remove from environment
                     "JULIA_LOAD_PATH" => Sys.iswindows() ? "@;@stdlib" : "@:@stdlib",
                     "JULIA_PKG_PRECOMPILE_AUTO" => "0",
                     "TERM" => "") do
             run(```$(julia_exepath()) -O0 --trace-compile=$precompile_file --sysimage $sysimg
-                   --cpu-target=native --startup-file=no -i $cmdargs```,
+                   --cpu-target=native --startup-file=no -i $cmdargs --pkgimages=no```,
                    pts, pts, pts; wait=false)
         end
         Base.close_stdio(pts)

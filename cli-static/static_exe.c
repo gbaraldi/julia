@@ -60,7 +60,7 @@ int main(int argc, char * argv[])
     }
     argv[argc] = NULL;
 #endif
-
+    jl_init_options();
     // Call load_repl with our initialization arguments:
     int ret = jl_repl_entrypoint(argc, argv);
 

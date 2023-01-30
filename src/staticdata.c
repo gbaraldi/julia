@@ -498,7 +498,7 @@ extern const char* jl_system_image_data __attribute__((weak)) ;
 extern const void *jl_sysimg_gvars_base __attribute__((weak));
 extern const void *jl_sysimg_gvars_offsets __attribute__((weak));
 extern const void *jl_sysimg_gvars_offsets __attribute__((weak));
-const size_t jl_system_image_size __attribute__((weak)) = 0;
+const size_t jl_system_image_size __attribute__((weak));
 extern const void *jl_pgcstack_func_slot __attribute__((weak));
 extern const void *jl_pgcstack_key_slot __attribute__((weak));
 
@@ -2662,7 +2662,6 @@ JL_DLLEXPORT void jl_preload_sysimg_so(const char *fname)
 {
     if (jl_sysimg_handle || jl_system_image_size)
         return; // embedded target already called jl_set_sysimg_so
-
     char *dot = (char*) strrchr(fname, '.');
     int is_ji = (dot && !strcmp(dot, ".ji"));
 
@@ -3344,6 +3343,8 @@ JL_DLLEXPORT void jl_restore_system_image(const char *fname)
         // load the pre-compiled sysimage from jl_sysimg_handle
         jl_load_sysimg_so();
     }
+    else if (jl_system_image_size)
+        jl_load_sysimg_static();
     else {
         ios_t f;
         if (ios_file(&f, fname, 1, 0, 0, 0) == NULL)

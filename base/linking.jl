@@ -137,7 +137,7 @@ function link_image_cmd(path, out)
     end
 
     V = VERBOSE[] ? "--verbose" : ""
-    `$(ld()) $V $SHARED -o $out $WHOLE_ARCHIVE $path $NO_WHOLE_ARCHIVE $LIBDIR $PRIVATE_LIBDIR $SHLIBDIR $LIBS`
+    `$(ld()) $V $SHARED -o $out $WHOLE_ARCHIVE $path $NO_WHOLE_ARCHIVE $LIBDIR $PRIVATE_LIBDIR $SHLIBDIR `
 end
 
 function link_image(path, out, internal_stderr::IO = stderr, internal_stdout::IO = stdout)
