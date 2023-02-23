@@ -36,7 +36,7 @@
 #include <llvm/Support/Host.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Object/SymbolSize.h>
-
+#include <llvm/AsmParser/Parser.h>
 using namespace llvm;
 
 #include "llvm-codegen-shared.h"
@@ -1226,7 +1226,7 @@ JuliaOJIT::JuliaOJIT()
 #endif
     GlobalJD(ES.createBareJITDylib("JuliaGlobals")),
     JD(ES.createBareJITDylib("JuliaOJIT")),
-    libgccJD(ES.createBareJITDylib("Julialibgcc")),
+    f16InterposerJD(ES.createBareJITDylib("Juliaf16Interposer")),
     ContextPool([](){
         auto ctx = std::make_unique<LLVMContext>();
 #ifdef JL_LLVM_OPAQUE_POINTERS
@@ -1282,6 +1282,53 @@ JuliaOJIT::JuliaOJIT()
     // symbols in the program as well. The nullptr argument to the function
     // tells DynamicLibrary to load the program, not a library.
     std::string ErrorStr;
+
+    const char *aliasIR = R"V0G0N"(
+declare external float @julia__gnu_h2f_ieee(i16);
+declare external i16 @julia__gnu_f2hieee(float);
+declare external i16 @julia__truncdfhf2(double);
+
+define internal float @__gnu_h2f_ieee(half %0) unnamed_addr {
+top:
+    %1 = bitcast half %0 to i16
+    %2 = call float @julia__gnu_h2f_ieee(i16 %1)
+    ret float %2
+}
+define internal float @__extendhfsf2(half %0) unnamed_addr {
+top:
+    %1 = bitcast half %0 to i16
+    %2 = call float @julia__gnu_h2f_ieee(i16 %1)
+    ret float %2
+}
+define internal half @__gnu_f2h_ieee(float %0) unnamed_addr {
+top:
+    %1 = call i16 @julia__gnu_f2hieee(float %0)
+    %2 = bitcast i16 %1 to half
+    ret half %2
+}
+define internal half @__truncsfhf2(float %0) unnamed_addr {
+top:
+    %1 = call i16 @julia__gnu_f2hieee(float %0)
+    %2 = bitcast i16 %1 to half
+    ret half %2
+}
+define internal half @__truncdfhf2(double %0) unnamed_addr {
+top:
+    %1 = call i16 @julia__truncdfhf2(double %0)
+    %2 = bitcast i16 %1 to half
+    ret half %2
+}
+)V0G0N"";
+
+    auto ctx = ContextPool.acquire();
+    SMDiagnostic Err = SMDiagnostic();
+    auto aliasM = parseAssemblyString(aliasIR, Err, *ctx.getContext());
+    jl_decorate_module(*aliasM);
+    shareStrings(*aliasM);
+    cantFail(OptSelLayer.add(f16InterposerJD, orc::ThreadSafeModule(std::move(aliasM), ctx)));
+    releaseContext(std::move(ctx));
+    JD.addToLinkOrder(f16InterposerJD, orc::JITDylibLookupFlags::MatchAllSymbols);
+
     if (sys::DynamicLibrary::LoadLibraryPermanently(nullptr, &ErrorStr))
         report_fatal_error(llvm::Twine("FATAL: unable to dlopen self\n") + ErrorStr);
 
@@ -1300,26 +1347,7 @@ JuliaOJIT::JuliaOJIT()
         NULL;
 #endif
 
-    const char *const libgcc =
-#if defined(_OS_LINUX_) || defined(_OS_FREEBSD_)
-        "libgcc_s.so.1";
-#elif defined(_OS_WINDOWS_) && defined(_CPU_X86_64_)
-        "libgcc_s_seh-1.dll";
-#elif defined(_OS_WINDOWS_) && defined(_CPU_X86_)
-        "libgcc_s_sjlj-1.dll";
-#else
-        NULL;
-#endif
-    if (libgcc) {
-    void *libgcc_hdl = jl_load_dynamic_library(libgcc, JL_RTLD_LOCAL, 0);
-    if (libgcc_hdl != NULL) {
-        jl_printf(JL_STDOUT,"loaded libgcc into the JIT");
-        libgccJD.addGenerator(
-            cantFail(orc::DynamicLibrarySearchGenerator::Load(
-                libgcc,
-                DL.getGlobalPrefix())));
-    }
-    }
+
 
     if (libatomic) {
         static void *atomic_hdl = jl_load_dynamic_library(libatomic, JL_RTLD_LOCAL, 0);
@@ -1334,7 +1362,7 @@ JuliaOJIT::JuliaOJIT()
                   })));
         }
     }
-    JD.addToLinkOrder(libgccJD, orc::JITDylibLookupFlags::MatchAllSymbols);
+
     JD.addToLinkOrder(GlobalJD, orc::JITDylibLookupFlags::MatchExportedSymbolsOnly);
 #if !(JL_LLVM_VERSION >= 15000)
     orc::SymbolAliasMap jl_crt = {
