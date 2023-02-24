@@ -1222,7 +1222,7 @@ static void makeCastCall(Module &M, StringRef wrapperName, StringRef calledName,
     if (!calledFun) {
         calledFun = Function::Create(FTcalled, Function::ExternalLinkage, calledName, M);
     }
-    auto wrapperFun = Function::Create(FTwrapper, Function::InternalLinkage, wrapperName, M);
+    auto wrapperFun = Function::Create(FTwrapper, Function::ExternalLinkage, wrapperName, M);
     appendToCompilerUsed(M, {wrapperFun});
 
     llvm::IRBuilder<> builder(BasicBlock::Create(M.getContext(), "top", wrapperFun));
