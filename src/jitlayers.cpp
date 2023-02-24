@@ -43,7 +43,7 @@ using namespace llvm;
 #include "jitlayers.h"
 #include "julia_assert.h"
 #include "processor.h"
-
+#include <iostream>
 #ifdef JL_USE_JITLINK
 # if JL_LLVM_VERSION >= 140000
 #  include <llvm/ExecutionEngine/Orc/DebuggerSupportPlugin.h>
@@ -1216,6 +1216,46 @@ JuliaOJIT::PipelineT::PipelineT(orc::ObjectLayer &BaseLayer, TargetMachine &TM, 
     OptimizeLayer(CompileLayer.getExecutionSession(), CompileLayer,
             llvm::orc::IRTransformLayer::TransformFunction(OptimizerT(TM, optlevel))) {}
 
+static void makeCastCall(Module &M, StringRef wrapperName, StringRef calledName, FunctionType *FTwrapper, FunctionType *FTcalled)
+{
+    Function *calledFun = M.getFunction(calledName);
+    if (!calledFun) {
+        calledFun = Function::Create(FTcalled, Function::ExternalLinkage, calledName, M);
+    }
+    auto wrapperFun = Function::Create(FTwrapper, Function::InternalLinkage, wrapperName, M);
+    appendToCompilerUsed(M, {wrapperFun});
+
+    llvm::IRBuilder<> builder(BasicBlock::Create(M.getContext(), "top", wrapperFun));
+    SmallVector<Value *, 4> CallArgs;
+    if (wrapperFun->arg_size() != calledFun->arg_size()){
+        llvm::errs() << "FATAL ERROR: Can't match wrapper to called function";
+        abort();
+    }
+    for (auto wrapperArg = wrapperFun->arg_begin(), calledArg = calledFun->arg_begin();
+            wrapperArg != wrapperFun->arg_end() && calledArg != calledFun->arg_end(); ++wrapperArg, ++calledArg)
+    {
+        CallArgs.push_back(builder.CreateBitCast(wrapperArg, calledArg->getType()));
+    }
+    auto val = builder.CreateCall(calledFun, CallArgs);
+    auto retval = builder.CreateBitCast(val,wrapperFun->getReturnType());
+    builder.CreateRet(retval);
+}
+
+static void emitFloat16Wrappers(Module &M)
+{
+    auto &ctx = M.getContext();
+    makeCastCall(M, "__gnu_h2f_ieee", "julia__gnu_h2f_ieee", FunctionType::get(Type::getFloatTy(ctx), { Type::getHalfTy(ctx) }, false),
+                FunctionType::get(Type::getFloatTy(ctx), { Type::getInt16Ty(ctx) }, false));
+    makeCastCall(M, "__extendhfsf2", "julia__gnu_h2f_ieee", FunctionType::get(Type::getFloatTy(ctx), { Type::getHalfTy(ctx) }, false),
+                FunctionType::get(Type::getFloatTy(ctx), { Type::getInt16Ty(ctx) }, false));
+    makeCastCall(M, "__gnu_f2h_ieee", "julia__gnu_f2h_ieee", FunctionType::get(Type::getHalfTy(ctx), { Type::getFloatTy(ctx) }, false),
+                FunctionType::get(Type::getInt16Ty(ctx), { Type::getFloatTy(ctx) }, false));
+    makeCastCall(M, "__truncsfhf2", "julia__gnu_f2h_ieee", FunctionType::get(Type::getHalfTy(ctx), { Type::getFloatTy(ctx) }, false),
+                FunctionType::get(Type::getInt16Ty(ctx), { Type::getFloatTy(ctx) }, false));
+    makeCastCall(M, "__truncdfhf2", "julia__truncdfhf2", FunctionType::get(Type::getHalfTy(ctx), { Type::getDoubleTy(ctx) }, false),
+                FunctionType::get(Type::getInt16Ty(ctx), { Type::getDoubleTy(ctx) }, false));
+
+}
 JuliaOJIT::JuliaOJIT()
   : TM(createTargetMachine()),
     DL(jl_create_datalayout(*TM)),
@@ -1283,49 +1323,16 @@ JuliaOJIT::JuliaOJIT()
     // tells DynamicLibrary to load the program, not a library.
     std::string ErrorStr;
 
-    const char *aliasIR = R"V0G0N"(
-declare external float @julia__gnu_h2f_ieee(i16);
-declare external i16 @julia__gnu_f2hieee(float);
-declare external i16 @julia__truncdfhf2(double);
-
-define external float @__gnu_h2f_ieee(half %0) unnamed_addr {
-top:
-    %1 = bitcast half %0 to i16
-    %2 = call float @julia__gnu_h2f_ieee(i16 %1)
-    ret float %2
-}
-define external float @__extendhfsf2(half %0) unnamed_addr {
-top:
-    %1 = bitcast half %0 to i16
-    %2 = call float @julia__gnu_h2f_ieee(i16 %1)
-    ret float %2
-}
-define external half @__gnu_f2h_ieee(float %0) unnamed_addr {
-top:
-    %1 = call i16 @julia__gnu_f2hieee(float %0)
-    %2 = bitcast i16 %1 to half
-    ret half %2
-}
-define external half @__truncsfhf2(float %0) unnamed_addr {
-top:
-    %1 = call i16 @julia__gnu_f2hieee(float %0)
-    %2 = bitcast i16 %1 to half
-    ret half %2
-}
-define external half @__truncdfhf2(double %0) unnamed_addr {
-top:
-    %1 = call i16 @julia__truncdfhf2(double %0)
-    %2 = bitcast i16 %1 to half
-    ret half %2
-}
-)V0G0N"";
-
     auto ctx = ContextPool.acquire();
-    SMDiagnostic Err = SMDiagnostic();
-    auto aliasM = parseAssemblyString(aliasIR, Err, *ctx.getContext());
+    std::unique_ptr<Module> aliasM =  jl_create_llvm_module("F16Wrappers", *ctx.getContext(), imaging_default(), DL, TM->getTargetTriple());
+    emitFloat16Wrappers(*aliasM);
     jl_decorate_module(*aliasM);
     shareStrings(*aliasM);
-    aliasM->dump();
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << *aliasM;
+    OS.flush();
+    std::cout<<Str;
     cantFail(OptSelLayer.add(JD, orc::ThreadSafeModule(std::move(aliasM), ctx)));
     releaseContext(std::move(ctx));
     // JD.addToLinkOrder(f16InterposerJD, orc::JITDylibLookupFlags::MatchAllSymbols);
