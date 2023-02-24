@@ -1288,31 +1288,31 @@ declare external float @julia__gnu_h2f_ieee(i16);
 declare external i16 @julia__gnu_f2hieee(float);
 declare external i16 @julia__truncdfhf2(double);
 
-define internal float @__gnu_h2f_ieee(half %0) unnamed_addr {
+define external float @__gnu_h2f_ieee(half %0) unnamed_addr {
 top:
     %1 = bitcast half %0 to i16
     %2 = call float @julia__gnu_h2f_ieee(i16 %1)
     ret float %2
 }
-define internal float @__extendhfsf2(half %0) unnamed_addr {
+define external float @__extendhfsf2(half %0) unnamed_addr {
 top:
     %1 = bitcast half %0 to i16
     %2 = call float @julia__gnu_h2f_ieee(i16 %1)
     ret float %2
 }
-define internal half @__gnu_f2h_ieee(float %0) unnamed_addr {
+define external half @__gnu_f2h_ieee(float %0) unnamed_addr {
 top:
     %1 = call i16 @julia__gnu_f2hieee(float %0)
     %2 = bitcast i16 %1 to half
     ret half %2
 }
-define internal half @__truncsfhf2(float %0) unnamed_addr {
+define external half @__truncsfhf2(float %0) unnamed_addr {
 top:
     %1 = call i16 @julia__gnu_f2hieee(float %0)
     %2 = bitcast i16 %1 to half
     ret half %2
 }
-define internal half @__truncdfhf2(double %0) unnamed_addr {
+define external half @__truncdfhf2(double %0) unnamed_addr {
 top:
     %1 = call i16 @julia__truncdfhf2(double %0)
     %2 = bitcast i16 %1 to half
@@ -1325,9 +1325,9 @@ top:
     auto aliasM = parseAssemblyString(aliasIR, Err, *ctx.getContext());
     jl_decorate_module(*aliasM);
     shareStrings(*aliasM);
-    cantFail(OptSelLayer.add(f16InterposerJD, orc::ThreadSafeModule(std::move(aliasM), ctx)));
+    cantFail(OptSelLayer.add(JD, orc::ThreadSafeModule(std::move(aliasM), ctx)));
     releaseContext(std::move(ctx));
-    JD.addToLinkOrder(f16InterposerJD, orc::JITDylibLookupFlags::MatchAllSymbols);
+    // JD.addToLinkOrder(f16InterposerJD, orc::JITDylibLookupFlags::MatchAllSymbols);
 
     if (sys::DynamicLibrary::LoadLibraryPermanently(nullptr, &ErrorStr))
         report_fatal_error(llvm::Twine("FATAL: unable to dlopen self\n") + ErrorStr);
