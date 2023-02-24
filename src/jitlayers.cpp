@@ -1325,6 +1325,7 @@ top:
     auto aliasM = parseAssemblyString(aliasIR, Err, *ctx.getContext());
     jl_decorate_module(*aliasM);
     shareStrings(*aliasM);
+    aliasM->dump();
     cantFail(OptSelLayer.add(JD, orc::ThreadSafeModule(std::move(aliasM), ctx)));
     releaseContext(std::move(ctx));
     // JD.addToLinkOrder(f16InterposerJD, orc::JITDylibLookupFlags::MatchAllSymbols);
