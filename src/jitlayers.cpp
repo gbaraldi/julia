@@ -1266,7 +1266,6 @@ JuliaOJIT::JuliaOJIT()
 #endif
     GlobalJD(ES.createBareJITDylib("JuliaGlobals")),
     JD(ES.createBareJITDylib("JuliaOJIT")),
-    f16InterposerJD(ES.createBareJITDylib("Juliaf16Interposer")),
     ContextPool([](){
         auto ctx = std::make_unique<LLVMContext>();
 #ifdef JL_LLVM_OPAQUE_POINTERS
@@ -1323,26 +1322,34 @@ JuliaOJIT::JuliaOJIT()
     // tells DynamicLibrary to load the program, not a library.
     std::string ErrorStr;
 
-    auto ctx = ContextPool.acquire();
-    std::unique_ptr<Module> aliasM =  jl_create_llvm_module("F16Wrappers", *ctx.getContext(), imaging_default(), DL, TM->getTargetTriple());
-    emitFloat16Wrappers(*aliasM);
-    jl_decorate_module(*aliasM);
-    shareStrings(*aliasM);
-    std::string Str;
-    raw_string_ostream OS(Str);
-    OS << *aliasM;
-    OS.flush();
-    std::cout<<Str;
-    cantFail(OptSelLayer.add(JD, orc::ThreadSafeModule(std::move(aliasM), ctx)));
-    releaseContext(std::move(ctx));
-    // JD.addToLinkOrder(f16InterposerJD, orc::JITDylibLookupFlags::MatchAllSymbols);
-
     if (sys::DynamicLibrary::LoadLibraryPermanently(nullptr, &ErrorStr))
         report_fatal_error(llvm::Twine("FATAL: unable to dlopen self\n") + ErrorStr);
 
     GlobalJD.addGenerator(
       cantFail(orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
         DL.getGlobalPrefix())));
+
+    auto ctx = ContextPool.acquire();
+    std::unique_ptr<Module> aliasM =  jl_create_llvm_module("F16Wrappers", *ctx.getContext(), imaging_default(), DL, TM->getTargetTriple());
+    emitFloat16Wrappers(*aliasM);
+    orc::SymbolLookupSet NewExports;
+    for (auto &F : aliasM->global_values()) {
+            if (!F.isDeclaration() && F.getLinkage() == GlobalValue::ExternalLinkage) {
+                auto Name = ES.intern(getMangledName(F.getName()));
+                std::cout << (*Name).str() << std::endl;
+                NewExports.add(std::move(Name));
+            }
+        }
+    cantFail(OptSelLayer.add(JD, ThreadSafeModule(std::move(aliasM),ctx)));
+    releaseContext(std::move(ctx));
+    ES.lookup({{&JD, orc::JITDylibLookupFlags::MatchExportedSymbolsOnly}}, NewExports);
+
+    // for (auto &sym : cantFail(ES.lookup({{&JD, orc::JITDylibLookupFlags::MatchExportedSymbolsOnly}}, NewExports))) {
+    //     jl_printf(JL_STDOUT,"hey");
+    //     assert(sym.second);
+    //     (void) sym;
+    // }
+
 
     // Resolve non-lock free atomic functions in the libatomic1 library.
     // This is the library that provides support for c11/c++11 atomic operations.
