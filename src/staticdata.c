@@ -1757,7 +1757,7 @@ void gc_sweep_sysimg(void)
             uintptr_t pos = last_pos + pos_diff;
             last_pos = pos;
             jl_taggedvalue_t *o = (jl_taggedvalue_t *)(base + pos);
-            o->bits.gc = GC_OLD;
+            o->bits.gc = GC_IMAGE;
         }
     }
 }
@@ -2799,7 +2799,7 @@ static void jl_restore_system_image_from_stream_(ios_t *f, jl_image_t *image, jl
         *base = image_base;
 
     s.s = &sysimg;
-    jl_read_reloclist(&s, s.link_ids_gctags, GC_OLD); // gctags
+    jl_read_reloclist(&s, s.link_ids_gctags, GC_IMAGE); // gctags
     size_t sizeof_tags = ios_pos(&relocs);
     (void)sizeof_tags;
     jl_read_reloclist(&s, s.link_ids_relocs, 0); // general relocs
@@ -2884,7 +2884,7 @@ static void jl_restore_system_image_from_stream_(ios_t *f, jl_image_t *image, jl
                     // make a non-owned copy of obj so we don't accidentally
                     // assume this is the unique copy later
                     newdt = jl_new_uninitialized_datatype();
-                    jl_astaggedvalue(newdt)->bits.gc = GC_OLD;
+                    jl_astaggedvalue(newdt)->bits.gc = GC_IMAGE;
                     // leave most fields undefined for now, but we may need instance later,
                     // and we overwrite the name field (field 0) now so preserve it too
                     if (dt->instance) {
@@ -2910,7 +2910,7 @@ static void jl_restore_system_image_from_stream_(ios_t *f, jl_image_t *image, jl
             arraylist_push(&cleanup_list, (void*)obj);
         }
         if (tag)
-            *pfld = (uintptr_t)newobj | GC_OLD;
+            *pfld = (uintptr_t)newobj | GC_IMAGE;
         else
             *pfld = (uintptr_t)newobj;
         assert(!(image_base < (char*)newobj && (char*)newobj <= image_base + sizeof_sysimg + sizeof(uintptr_t)));

@@ -300,7 +300,9 @@ static inline void memmove_refs(void **dstp, void *const *srcp, size_t n) JL_NOT
 #define GC_CLEAN  0 // freshly allocated
 #define GC_MARKED 1 // reachable and young
 #define GC_OLD    2 // if it is reachable it will be marked as old
-#define GC_OLD_MARKED (GC_OLD | GC_MARKED) // reachable and old
+#define GC_OLD_MARKED (GC_OLD | GC_MARKED) // reachable and old basically 3
+#define GC_IMAGE (GC_OLD | 4) // Always counted as old
+#define GC_IMAGE_MARKED (GC_IMAGE | GC_MARKED)
 
 // useful constants
 extern jl_methtable_t *jl_type_type_mt JL_GLOBALLY_ROOTED;

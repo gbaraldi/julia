@@ -190,7 +190,7 @@ JL_DLLEXPORT JL_NO_SANITIZE void *jl_dlopen(const char *filename, unsigned flags
             return NULL;
         void *libdl_handle = dlopen("libdl.so", RTLD_NOW | RTLD_NOLOAD);
         dlopen = (dlopen_prototype*)dlsym(libdl_handle, "dlopen");
-        dlclose(libdl_handle);
+        // dlclose(libdl_handle);
         assert(dlopen);
     }
     // The real interceptors check the validity of the string here, but let's
