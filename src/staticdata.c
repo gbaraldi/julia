@@ -1757,7 +1757,7 @@ void gc_sweep_sysimg(void)
             uintptr_t pos = last_pos + pos_diff;
             last_pos = pos;
             jl_taggedvalue_t *o = (jl_taggedvalue_t *)(base + pos);
-            o->bits.gc = GC_OLD;
+            o->bits.gc = GC_IMAGE;
         }
     }
 }
@@ -2805,7 +2805,7 @@ static void jl_restore_system_image_from_stream_(ios_t *f, jl_image_t *image, jl
         *base = image_base;
 
     s.s = &sysimg;
-    jl_read_reloclist(&s, s.link_ids_gctags, GC_OLD); // gctags
+    jl_read_reloclist(&s, s.link_ids_gctags, GC_IMAGE); // gctags
     size_t sizeof_tags = ios_pos(&relocs);
     (void)sizeof_tags;
     jl_read_reloclist(&s, s.link_ids_relocs, 0); // general relocs
@@ -2878,7 +2878,7 @@ static void jl_restore_system_image_from_stream_(ios_t *f, jl_image_t *image, jl
             if (jl_is_datatype(dt)) {
                 newdt = dt; // already done
             }
-            else {
+            else { 
                 dt = (jl_datatype_t*)obj;
                 arraylist_push(&cleanup_list, (void*)obj);
                 ptrhash_remove(&new_dt_objs, (void*)obj); // unmark obj as invalid before must_be_new_dt
@@ -2916,7 +2916,7 @@ static void jl_restore_system_image_from_stream_(ios_t *f, jl_image_t *image, jl
             arraylist_push(&cleanup_list, (void*)obj);
         }
         if (tag)
-            *pfld = (uintptr_t)newobj | GC_OLD;
+            *pfld = (uintptr_t)newobj | GC_IMAGE;
         else
             *pfld = (uintptr_t)newobj;
         assert(!(image_base < (char*)newobj && (char*)newobj <= image_base + sizeof_sysimg + sizeof(uintptr_t)));

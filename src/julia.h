@@ -90,7 +90,7 @@ extern "C" {
 typedef struct _jl_value_t jl_value_t;
 
 struct _jl_taggedvalue_bits {
-    uintptr_t gc:2;
+    uintptr_t gc:3;
 };
 
 JL_EXTENSION struct _jl_taggedvalue_t {
@@ -932,7 +932,7 @@ JL_DLLEXPORT void jl_gc_queue_multiroot(const jl_value_t *root, const jl_value_t
 STATIC_INLINE void jl_gc_wb(const void *parent, const void *ptr) JL_NOTSAFEPOINT
 {
     // parent and ptr isa jl_value_t*
-    if (__unlikely(jl_astaggedvalue(parent)->bits.gc == 3 && // parent is old and not in remset
+    if (__unlikely((jl_astaggedvalue(parent)->bits.gc & 0x3) == 3 && // parent is old and not in remset
                    (jl_astaggedvalue(ptr)->bits.gc & 1) == 0)) // ptr is young
         jl_gc_queue_root((jl_value_t*)parent);
 }
@@ -940,7 +940,7 @@ STATIC_INLINE void jl_gc_wb(const void *parent, const void *ptr) JL_NOTSAFEPOINT
 STATIC_INLINE void jl_gc_wb_back(const void *ptr) JL_NOTSAFEPOINT // ptr isa jl_value_t*
 {
     // if ptr is old
-    if (__unlikely(jl_astaggedvalue(ptr)->bits.gc == 3)) {
+    if (__unlikely((jl_astaggedvalue(ptr)->bits.gc & 0x3) == 3)) {
         jl_gc_queue_root((jl_value_t*)ptr);
     }
 }
@@ -948,9 +948,9 @@ STATIC_INLINE void jl_gc_wb_back(const void *ptr) JL_NOTSAFEPOINT // ptr isa jl_
 STATIC_INLINE void jl_gc_multi_wb(const void *parent, const jl_value_t *ptr) JL_NOTSAFEPOINT
 {
     // ptr is an immutable object
-    if (__likely(jl_astaggedvalue(parent)->bits.gc != 3))
+    if (__likely((jl_astaggedvalue(parent)->bits.gc & 3) != 3))
         return; // parent is young or in remset
-    if (__likely(jl_astaggedvalue(ptr)->bits.gc == 3))
+    if (__likely((jl_astaggedvalue(ptr)->bits.gc & 3) == 3))
         return; // ptr is old and not in remset (thus it does not point to young)
     jl_datatype_t *dt = (jl_datatype_t*)jl_typeof(ptr);
     const jl_datatype_layout_t *ly = dt->layout;

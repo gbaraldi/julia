@@ -124,7 +124,7 @@ JL_EXTENSION typedef struct _bigval_t {
     union {
         uintptr_t header;
         struct {
-            uintptr_t gc:2;
+            uintptr_t gc:3;
         } bits;
     };
     // must be 64-byte aligned here, in 32 & 64 bit modes
@@ -291,9 +291,14 @@ STATIC_INLINE int gc_old(uintptr_t bits) JL_NOTSAFEPOINT
     return (bits & GC_OLD) != 0;
 }
 
+STATIC_INLINE int gc_image(uintptr_t bits) JL_NOTSAFEPOINT
+{
+    return (bits & GC_IMAGE & ~GC_OLD) != 0;
+}
+
 STATIC_INLINE uintptr_t gc_set_bits(uintptr_t tag, int bits) JL_NOTSAFEPOINT
 {
-    return (tag & ~(uintptr_t)3) | bits;
+    return (tag & ~(uintptr_t)7) | bits;
 }
 
 STATIC_INLINE uintptr_t gc_ptr_tag(void *v, uintptr_t mask) JL_NOTSAFEPOINT

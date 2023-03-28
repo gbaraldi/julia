@@ -105,7 +105,7 @@ static void gc_clear_mark_page(jl_gc_pagemeta_t *pg, int bits)
     char *lim = (char*)pv + GC_PAGE_SZ - GC_PAGE_OFFSET - pool->osize;
     while ((char*)pv <= lim) {
         if (!gc_verifying)
-            arraylist_push(&bits_save[pv->bits.gc], pv);
+            arraylist_push(&bits_save[pv->bits.gc & 0x3], pv);
         pv->bits.gc = bits;
         pv = (jl_taggedvalue_t*)((char*)pv + pool->osize);
     }
@@ -169,7 +169,7 @@ static void clear_mark(int bits)
         while (v != NULL) {
             void *gcv = &v->header;
             if (!gc_verifying)
-                arraylist_push(&bits_save[v->bits.gc], gcv);
+                arraylist_push(&bits_save[v->bits.gc & 0x3], gcv);
             v->bits.gc = bits;
             v = v->next;
         }
@@ -179,7 +179,7 @@ static void clear_mark(int bits)
     while (v != NULL) {
         void *gcv = &v->header;
         if (!gc_verifying)
-            arraylist_push(&bits_save[v->bits.gc], gcv);
+            arraylist_push(&bits_save[v->bits.gc& 0x3], gcv);
         v->bits.gc = bits;
         v = v->next;
     }
@@ -1060,7 +1060,7 @@ static size_t pool_stats(jl_gc_pool_t *p, size_t *pwaste, size_t *np,
             }
             else {
                 nused++;
-                if (((jl_taggedvalue_t*)v)->bits.gc == GC_OLD_MARKED) {
+                if ((((jl_taggedvalue_t*)v)->bits.gc & 0x3) == GC_OLD_MARKED) {
                     nold++;
                 }
             }
