@@ -7,6 +7,8 @@
 
 #include <stdlib.h>
 
+#include "dtypes.h"
+#include "ios.h"
 #include "julia.h"
 #include "julia_internal.h"
 #include "julia_assert.h"
@@ -113,30 +115,60 @@ JL_DLLEXPORT void jl_write_compiler_output(void)
 
     bool_t emit_split = jl_options.outputji && emit_native;
 
-    ios_t *s = NULL;
-    ios_t *z = NULL;
-    int64_t srctextpos = 0 ;
+    ios_t *data_stream = NULL;
+    ios_t *ji_stream = NULL;
+    ios_t *so_stream = NULL;
+
+    if (emit_native) {
+        so_stream = (ios_t*)malloc_s(sizeof(ios_t));
+        ios_mem(so_stream, 0);
+    }
+
+    if (jl_options.outputji) {
+        ji_stream = (ios_t*)malloc_s(sizeof(ios_t));
+        ios_mem(ji_stream, 0);
+    }
+
+
+    if (!emit_split && emit_native) {
+        data_stream = so_stream;
+    } else {
+        data_stream = ji_stream;
+    }
+
+    int64_t srctextpos = 0;
+    int64_t cputargetspos = 0;
     jl_create_system_image(emit_native ? &native_code : NULL,
                            jl_options.incremental ? worklist : NULL,
-                           emit_split, &s, &z, &udeps, &srctextpos);
-
-    if (!emit_split)
-        z = s;
+                           emit_split, data_stream, ji_stream, so_stream,  &udeps, &srctextpos, &cputargetspos);
 
     // jl_dump_native writes the clone_targets into `s`
     // We need to postpone the srctext writing after that.
+    char* data_native = NULL;
+    size_t data_native_size = 0;
+    if (!emit_split) {
+        // Copy data into so
+        data_native = (char*)data_stream->buf;
+        data_native_size = data_stream->size;
+    }
+
     if (native_code) {
         jl_dump_native(native_code,
                         jl_options.outputbc,
                         jl_options.outputunoptbc,
                         jl_options.outputo,
                         jl_options.outputasm,
-                        (const char*)z->buf, (size_t)z->size, s);
+                        data_native, data_native_size, ji_stream, cputargetspos);
         jl_postoutput_hook();
     }
 
+    // Copy the sysimg data into the ji file.
+    if (emit_split) {
+        ios_write(ji_stream, (char*)data_stream->buf, data_stream->size);
+    }
+
     if ((jl_options.outputji || emit_native) && jl_options.incremental) {
-        write_srctext(s, udeps, srctextpos);
+        write_srctext(ji_stream, udeps, srctextpos);
     }
 
     if (jl_options.outputji) {

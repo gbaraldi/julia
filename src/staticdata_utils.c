@@ -648,6 +648,7 @@ static int64_t write_header(ios_t *s, uint8_t pkgimage)
     write_uint64(s, 0); // eventually will hold checksum for the content portion of this (build_id.hi)
     write_uint64(s, 0); // eventually will hold dataendpos
     write_uint64(s, 0); // eventually will hold datastartpos
+    write_uint64(s,0); // cputargetspos
     return checksumpos;
 }
 
