@@ -2,7 +2,7 @@
 
 # RUN: julia --startup-file=no %s %t && llvm-link -S %t/* -o %t/module.ll
 # RUN: cat %t/module.ll | FileCheck %s
-# RUN: cat %t/module.ll | opt -enable-new-pm=1 --load-pass-plugin=libjulia-codegen%shlibext -passes='loop(LowerSIMDLoop)' -S - | FileCheck %s -check-prefix=LOWER
+# RUN: cat %t/module.ll | opt --load-pass-plugin=libjulia-codegen%shlibext -passes='loop(LowerSIMDLoop)' -S - | FileCheck %s -check-prefix=LOWER
 # RUN: julia --startup-file=no %s %t -O && llvm-link -S %t/* -o %t/module.ll
 # RUN: cat %t/module.ll | FileCheck %s -check-prefix=FINAL
 
@@ -79,7 +79,7 @@ end
     for i in 1:10
         for j in J
             1 <= j <= I && continue
-            @show (i,j)
+            @show (i, j)
             iteration(i)
         end
         $(Expr(:loopinfo, (Symbol("llvm.loop.unroll.full"),)))
@@ -104,10 +104,10 @@ end
     for i in 1:10
         for j in J
             1 <= j <= I && continue
-            @show (i,j)
+            @show (i, j)
             iteration(i)
-# FINAL: call {{(swiftcc )?}}void @j_iteration
-# FINAL-NOT: call {{(swiftcc )?}}void @j_iteration
+            # FINAL: call {{(swiftcc )?}}void @j_iteration
+            # FINAL-NOT: call {{(swiftcc )?}}void @j_iteration
         end
         $(Expr(:loopinfo, (Symbol("llvm.loop.unroll.disable"),)))
     end
