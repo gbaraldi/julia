@@ -666,8 +666,8 @@ static void buildPipeline(ModulePassManager &MPM, PassBuilder *PB, OptimizationL
     buildEarlyOptimizerPipeline(MPM, PB, O, options);
     // Bound function/basic-block sizes before the super-linear passes (GVN,
     // LateLowerGCFrame, instruction selection, regalloc). Must run before
-    // LateLowerGCFrame so outlined callees get their own GC frames; no-op
-    // unless -julia-split-block-threshold is set.
+    // LateLowerGCFrame so outlined callees get their own GC frames; sizing
+    // is controlled by the -julia-split-* thresholds.
     if (EnableSplitting) {
         JULIA_PASS(MPM.addPass(FunctionSplittingPass()));
     }

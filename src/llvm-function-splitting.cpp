@@ -71,8 +71,10 @@
 // hole this contract was written after — and shows up as a nonzero
 // "out avg" for spilled regions in the -julia-split-time statistics.
 //
-// The pass is a no-op unless -julia-split-block-threshold or
-// -julia-split-function-threshold is set nonzero.
+// Both splitting positions are enabled by default and gated together by
+// -julia-split-enable (see pipeline.cpp); the pass is also a no-op when both
+// -julia-split-block-threshold and -julia-split-function-threshold are set
+// to 0.
 
 #include "llvm-version.h"
 #include "passes.h"
@@ -101,6 +103,7 @@
 #include <llvm/Transforms/Utils/PromoteMemToReg.h>
 #include <llvm/Transforms/Utils/ValueMapper.h>
 
+#include <atomic>
 #include <chrono>
 
 #include "llvm-codegen-shared.h"
@@ -119,7 +122,7 @@ STATISTIC(RegionsSpilled, "Number of regions whose interface was spilled through
 //===----------------------------------------------------------------------===//
 // Triggers: when does the pass act on a function at all?
 //
-// Both default to 0 = the pass is entirely disabled. Once triggered, whether a
+// Setting both to 0 disables the pass entirely. Once triggered, whether a
 // function is actually OUTLINED is decided by the sizing caps below (a
 // function already under every cap satisfies every per-function cost bound the
 // caps enforce, so it is left alone); oversized blocks are chunked regardless.
@@ -1131,12 +1134,14 @@ static void spillInterface(Function &F, Region &R, DominatorTree &DT,
     if (TIn.empty() && UIn.empty() && TOut.empty() && UOut.empty() &&
         TPhis.empty() && UPhis.empty())
         return;
-    static int SpillCount = 0;
-    if (SplitSpillMax >= 0 && SpillCount >= SplitSpillMax)
+    // Process-wide ticket (atomic: modules are optimized concurrently), so
+    // -julia-split-spill-max can bisect across a whole build.
+    static std::atomic<int> SpillCount{0};
+    int Ticket = ++SpillCount;
+    if (SplitSpillMax >= 0 && Ticket > SplitSpillMax)
         return;
-    SpillCount++;
     if (SplitDebug)
-        errs() << "julia-function-splitting: spill #" << SpillCount << " at "
+        errs() << "julia-function-splitting: spill #" << Ticket << " at "
                << Entry->getName() << " TIn=" << TIn.size() << " UIn=" << UIn.size()
                << " TOut=" << TOut.size() << " UOut=" << UOut.size()
                << " TPhi=" << TPhis.size() << " UPhi=" << UPhis.size() << "\n";
@@ -1277,13 +1282,17 @@ static void spillInterface(Function &F, Region &R, DominatorTree &DT,
 }
 
 // Sub-stage accumulators (diagnostics; printed under -julia-split-debug).
-static int64_t PrepRematMs, PrepCEMs, PrepIOMs, PrepSpillMs;
+// Atomics: the JIT optimizes modules concurrently, so plain globals would be
+// a data race. The reset-then-print protocol still assumes a single-threaded
+// (-julia-split-time / -julia-split-debug) run to produce meaningful numbers;
+// under concurrent compilation they are merely best-effort.
+static std::atomic<int64_t> PrepRematMs, PrepCEMs, PrepIOMs, PrepSpillMs;
 // Region-growth outcome counters (reset per function; printed under
 // -julia-split-time). "clamp" cuts and growth failures mean the realized
 // region sizes diverge from the requested target — never silently.
-static int64_t GrowCutTarget, GrowCutSafepoint, GrowCutBlocks, GrowCutClamp, GrowFailBlocks, GrowFailSize, GrowFailNoAdd, GrowMinCutTrim;
+static std::atomic<int64_t> GrowCutTarget, GrowCutSafepoint, GrowCutBlocks, GrowCutClamp, GrowFailBlocks, GrowFailSize, GrowFailNoAdd, GrowMinCutTrim;
 // Interface statistics across a function's extractions (reset per function).
-static int64_t IfaceIn, IfaceOut, IfaceInMax, IfaceOutMax, IfaceExits, IfaceCalls;
+static std::atomic<int64_t> IfaceIn, IfaceOut, IfaceInMax, IfaceOutMax, IfaceExits, IfaceCalls;
 
 // CodeExtractor rewrites a region's uses of each input by scanning the
 // input's *entire* use list, which is quadratic for high-fanout values that
