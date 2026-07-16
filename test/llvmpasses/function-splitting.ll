@@ -1227,3 +1227,92 @@ done:
   %r = add i64 %e, %wi
   ret i64 %r
 }
+
+; Same rejection flow, but the sunk alloca's address computation has a
+; non-constant index (%idx) defined in the entry block. Only the alloca may
+; be hoisted back to the entry: re-anchoring the stranded GEP at the entry's
+; front would lift it above %idx and break dominance. The GEP is legal IR
+; where it was stranded once the hoisted alloca dominates it again.
+; REJECT-LABEL: define i64 @rejected_region_dynidx(
+; REJECT-NEXT: top:
+; REJECT-NOT: getelementptr inbounds [2 x i64]
+; REJECT: %slot = alloca [2 x i64]
+; REJECT-NOT: getelementptr inbounds [2 x i64]
+; REJECT: %idx = fptosi double %x to i64
+; REJECT: getelementptr inbounds [2 x i64], ptr %slot, i64 0, i64 %idx
+
+define i64 @rejected_region_dynidx(double %x, ptr addrspace(10) %obj) {
+top:
+  %pg = call ptr @julia.get_pgcstack()
+  %idx = fptosi double %x to i64
+  %slot = alloca [2 x i64], align 8
+  %q = getelementptr inbounds [2 x i64], ptr %slot, i64 0, i64 %idx
+  br label %work
+
+work:
+  %w1 = fadd double %x, 1.000000e+00
+  %w2 = fadd double %w1, 1.000000e+00
+  %w3 = fadd double %w2, 1.000000e+00
+  %w4 = fadd double %w3, 1.000000e+00
+  %w5 = fadd double %w4, 1.000000e+00
+  %w6 = fadd double %w5, 1.000000e+00
+  %w7 = fadd double %w6, 1.000000e+00
+  %w8 = fadd double %w7, 1.000000e+00
+  %w9 = fadd double %w8, 1.000000e+00
+  %w10 = fadd double %w9, 1.000000e+00
+  %w11 = fadd double %w10, 1.000000e+00
+  %w12 = fadd double %w11, 1.000000e+00
+  %w13 = fadd double %w12, 1.000000e+00
+  %w14 = fadd double %w13, 1.000000e+00
+  %w15 = fadd double %w14, 1.000000e+00
+  %w16 = fadd double %w15, 1.000000e+00
+  %w17 = fadd double %w16, 1.000000e+00
+  %w18 = fadd double %w17, 1.000000e+00
+  %w19 = fadd double %w18, 1.000000e+00
+  %w20 = fadd double %w19, 1.000000e+00
+  %w21 = fadd double %w20, 1.000000e+00
+  %w22 = fadd double %w21, 1.000000e+00
+  %w23 = fadd double %w22, 1.000000e+00
+  %w24 = fadd double %w23, 1.000000e+00
+  %w25 = fadd double %w24, 1.000000e+00
+  %w26 = fadd double %w25, 1.000000e+00
+  %w27 = fadd double %w26, 1.000000e+00
+  %w28 = fadd double %w27, 1.000000e+00
+  %w29 = fadd double %w28, 1.000000e+00
+  %w30 = fadd double %w29, 1.000000e+00
+  %w31 = fadd double %w30, 1.000000e+00
+  %w32 = fadd double %w31, 1.000000e+00
+  %w33 = fadd double %w32, 1.000000e+00
+  %w34 = fadd double %w33, 1.000000e+00
+  %w35 = fadd double %w34, 1.000000e+00
+  %w36 = fadd double %w35, 1.000000e+00
+  %w37 = fadd double %w36, 1.000000e+00
+  %w38 = fadd double %w37, 1.000000e+00
+  %w39 = fadd double %w38, 1.000000e+00
+  %w40 = fadd double %w39, 1.000000e+00
+  %w41 = fadd double %w40, 1.000000e+00
+  %w42 = fadd double %w41, 1.000000e+00
+  %w43 = fadd double %w42, 1.000000e+00
+  %w44 = fadd double %w43, 1.000000e+00
+  %w45 = fadd double %w44, 1.000000e+00
+  %w46 = fadd double %w45, 1.000000e+00
+  %w47 = fadd double %w46, 1.000000e+00
+  %w48 = fadd double %w47, 1.000000e+00
+  %w49 = fadd double %w48, 1.000000e+00
+  %w50 = fadd double %w49, 1.000000e+00
+  %w51 = fadd double %w50, 1.000000e+00
+  %w52 = fadd double %w51, 1.000000e+00
+  %w53 = fadd double %w52, 1.000000e+00
+  %w54 = fadd double %w53, 1.000000e+00
+  store i64 1, ptr %slot, align 8
+  store i64 2, ptr %q, align 8
+  %dec = addrspacecast ptr addrspace(10) %obj to ptr addrspace(11)
+  %d = getelementptr inbounds i8, ptr addrspace(11) %dec, i64 8
+  %wi = fptosi double %w54 to i64
+  br label %done
+
+done:
+  %e = load i64, ptr addrspace(11) %d, align 8
+  %r = add i64 %e, %wi
+  ret i64 %r
+}

@@ -1991,11 +1991,11 @@ static void privatizeRootBuffers(Function &F, std::vector<Region> &Leaves,
 // the slot's contents, so a fresh per-call slot is equivalent); extraction
 // later hoists it into the new function's entry so it stays static.
 //
-// Every sunk instruction is recorded in Sunk so that any that end up
-// stranded outside an entry block (their region was rejected during
-// extraction) can be hoisted back: a non-entry alloca is dynamic and
-// re-executes on every visit -- inside a loop that grows the stack
-// unboundedly for the whole activation.
+// Every sunk alloca is recorded in Sunk so that any that end up stranded
+// outside an entry block (their region was rejected during extraction) can
+// be hoisted back: a non-entry alloca is dynamic and re-executes on every
+// visit -- inside a loop that grows the stack unboundedly for the whole
+// activation.
 static void sinkEntryAllocas(Function &F, std::vector<Region> &Leaves,
                              SmallVectorImpl<WeakTrackingVH> &Sunk) JL_NOTSAFEPOINT
 {
@@ -2076,7 +2076,11 @@ static void sinkEntryAllocas(Function &F, std::vector<Region> &Leaves,
         if (Escapes || !Owner)
             continue;
         // Move the alloca (and its entry-resident address computations, in
-        // order) to the owning region's entry; erase the now-dead ones.
+        // order) to the owning region's entry; erase the now-dead ones. Only
+        // the alloca is recorded for hoist-back: the address computations
+        // are legal IR wherever they end up, and re-hoisting one could lift
+        // it above a non-constant operand (e.g. a dynamic GEP index) defined
+        // later in the entry block.
         BasicBlock::iterator IP = Owner->Blocks[0]->getFirstInsertionPt();
         for (Instruction *A : Addrs) {
             if (A->getParent() != &Entry)
@@ -2086,7 +2090,8 @@ static void sinkEntryAllocas(Function &F, std::vector<Region> &Leaves,
                 continue;
             }
             A->moveBefore(IP);
-            Sunk.push_back(A);
+            if (isa<AllocaInst>(A))
+                Sunk.push_back(A);
         }
     }
 }
@@ -3355,27 +3360,26 @@ static bool splitFunction(Function &F, const JuliaPassContext &ctx) JL_NOTSAFEPO
                 FI->eraseFromParent();
         }
     }
-    // Hoist back any sunk instruction stranded outside an entry block: its
-    // region was rejected during extraction, so the sunk alloca now
-    // re-executes on every visit of its block. A non-entry alloca is a
-    // dynamic alloca; inside a loop it grows the stack on every iteration
-    // for the rest of the activation. Successful extractions already
-    // re-anchored their allocas in the new function's entry (see
-    // extractRegion). Reverse iteration with insertion at the entry's front
-    // restores the original recorded order (allocas ahead of the address
-    // computations rooted at them).
+    // Hoist back any sunk alloca stranded outside an entry block: its region
+    // was rejected during extraction, so the sunk alloca now re-executes on
+    // every visit of its block. A non-entry alloca is a dynamic alloca;
+    // inside a loop it grows the stack on every iteration for the rest of
+    // the activation. Successful extractions already re-anchored their
+    // allocas in the new function's entry (see extractRegion). Only allocas
+    // are re-anchored: a stranded address computation is legal IR wherever
+    // it sits (the hoisted alloca dominates it again), while re-hoisting it
+    // could lift it above a non-constant operand (e.g. a dynamic GEP index)
+    // defined later in the entry block. Appending at the current prefix end
+    // preserves the recorded alloca order.
     for (WeakTrackingVH &VH : SunkAllocas) {
-        auto *I = dyn_cast_or_null<Instruction>((Value *)VH);
-        if (!I)
+        auto *AI = dyn_cast_or_null<AllocaInst>((Value *)VH);
+        if (!AI)
             continue;
-        BasicBlock *BB = I->getParent();
+        BasicBlock *BB = AI->getParent();
         if (BB->isEntryBlock())
             continue;
-        // Appending each record at the current prefix end keeps every
-        // address computation after the alloca it derives from (records are
-        // grouped alloca-first).
         BasicBlock &Entry = BB->getParent()->getEntryBlock();
-        I->moveBefore(entryAllocaPrefixEnd(Entry));
+        AI->moveBefore(entryAllocaPrefixEnd(Entry));
     }
     auto T5 = now();
     if (SplitDebug || SplitTime)
